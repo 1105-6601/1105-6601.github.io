@@ -4,6 +4,8 @@ export default class LogoController
 {
     id;
 
+    targeted = false;
+
     #canvas;
 
     #ctx;
@@ -16,11 +18,15 @@ export default class LogoController
 
     #basePosY;
 
+    #boundBasePosX;
+
+    #boundBasePosY;
+
     #size;
 
     #triangleScale = 0.1;
 
-    #speedRatio = Math.random();
+    #speedRatio = Math.random() * 5;
 
     // -1 < x < 1 の範囲でθの増減値をランダムに決定
     #baseThetaIncrement = (Math.random() * 2) - 1;
@@ -31,9 +37,13 @@ export default class LogoController
 
     #titleImage = new Image();
 
-    #controllers;
+    #opacity = 1;
 
-    constructor(canvas, setting, controllers)
+    #logoControllers;
+
+    #animationController;
+
+    constructor(canvas, setting, logoControllers, animationController)
     {
         this.#canvas  = canvas;
         this.#ctx     = canvas.getContext('2d');
@@ -55,7 +65,8 @@ export default class LogoController
 
         this.#titleImage.src = this.#setting.titleImage;
 
-        this.#controllers = controllers;
+        this.#logoControllers     = logoControllers;
+        this.#animationController = animationController;
     }
 
     render()
@@ -66,7 +77,11 @@ export default class LogoController
         this.#wrapBasePositions();
         this.#addSwirlEffect();
         this.#decreaseBasePositionIncrement();
-        this.#objectCollisionJudgment();
+        this.#detectCursorCollision();
+
+        if (!this.#animationController.targetedAny) {
+            this.#objectCollisionJudgment();
+        }
     }
 
     set size(size)
@@ -139,11 +154,29 @@ export default class LogoController
         // ロゴの色を設定
         this.#ctx.fillStyle = this.#setting.color;
         this.#ctx.fill();
+
+        if (this.targeted) {
+            this.#size *= 1.01;
+        }
     }
 
     // タイトル画像の描写関数
     #renderTitleImage()
     {
+        this.#ctx.save();
+
+        if (this.#animationController.targetedAny) {
+            if (this.#opacity > 0) {
+                this.#opacity -= .02;
+            }
+            // 浮動小数点誤差の都合上、マイナスを超えた瞬間
+            // 透過度が1となり、ちらつくため次の処理を挟む
+            if (this.#opacity < 0) {
+                this.#opacity = 0;
+            }
+            this.#ctx.globalAlpha = this.#opacity;
+        }
+
         this.#ctx.drawImage(
             this.#titleImage,
             this.x - this.#size * .65,
@@ -151,6 +184,8 @@ export default class LogoController
             this.#size * 1.3,
             this.#size * .15,
         );
+
+        this.#ctx.restore();
     }
 
     // ロゴの座標を更新
@@ -194,7 +229,7 @@ export default class LogoController
         // オブジェクトの反発係数、大きいほど反発が強くなる
         const coefficientOfRestitution = .005;
 
-        for (let controller of this.#controllers) {
+        for (let controller of this.#logoControllers) {
             // 自身を除く他オブジェクトのみ判定
             if (controller.id !== this.id) {
                 // 対象オブジェクトとの2点間の距離を算出
@@ -236,5 +271,32 @@ export default class LogoController
         // 加算されたθの方向へ座標を更新
         this.#basePosXIncrement += Math.cos((currentTheta + additionalTheta) * Math.PI / 180) * weight;
         this.#basePosYIncrement += Math.sin((currentTheta + additionalTheta) * Math.PI / 180) * weight;
+    }
+
+    #detectCursorCollision()
+    {
+        this.#ctx.beginPath();
+        this.#ctx.arc(this.x, this.y, this.#size / .8, 0, Math.PI * 2);
+
+        if (this.#ctx.isPointInPath(this.#animationController.cursorX, this.#animationController.cursorY)) {
+            this.#basePosXIncrement *= .95;
+            this.#basePosYIncrement *= .95;
+            this.#boundBasePosX                        = this.x;
+            this.#boundBasePosY                        = this.y;
+            this.#animationController.hoveringObjectId = this.id;
+        } else {
+            // バウンド基準点とオブジェクトの中心点との距離を算出
+            const boundedDistance = Math.sqrt(Math.pow(this.x - this.#boundBasePosX, 2) + Math.pow(this.y - this.#boundBasePosY, 2));
+            // バウンド距離がロゴサイズに達するまで加速させる
+            if (boundedDistance < this.#size) {
+                const acceleration = 0.0001;
+                const radian       = Math.atan2(this.y - this.#boundBasePosY, this.x - this.#boundBasePosX);
+                this.#basePosXIncrement += Math.cos(radian) * (this.#size - boundedDistance) * acceleration;
+                this.#basePosYIncrement += Math.sin(radian) * (this.#size - boundedDistance) * acceleration;
+            }
+            if (this.#animationController.hoveringObjectId === this.id) {
+                this.#animationController.hoveringObjectId = null;
+            }
+        }
     }
 }
