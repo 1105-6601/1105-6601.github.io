@@ -1,6 +1,7 @@
 import LogoController from './logo-controller.js';
 import LOGO_SETTINGS  from './logo-settings.js';
 import Util           from './util.js';
+import Animation1     from './animation-1.js';
 
 export default class AnimationController
 {
@@ -136,5 +137,11 @@ export default class AnimationController
         }
 
         this.targetedAny = true;
+
+        switch (objectId) {
+            case 1:
+                new Animation1().render();
+                break;
+        }
     }
 }

@@ -73,6 +73,7 @@ export default class LogoController
     {
         this.#renderTriangles();
         this.#renderTitleImage();
+        this.#fadeOutIfRequired();
         this.#updateBasePositions();
         this.#wrapBasePositions();
         this.#addSwirlEffect();
@@ -163,11 +164,20 @@ export default class LogoController
     // タイトル画像の描写関数
     #renderTitleImage()
     {
-        this.#ctx.save();
+        this.#ctx.drawImage(
+            this.#titleImage,
+            this.x - this.#size * .65,
+            this.y + this.#size * .75,
+            this.#size * 1.3,
+            this.#size * .15,
+        );
+    }
 
+    #fadeOutIfRequired()
+    {
         if (this.#animationController.targetedAny) {
             if (this.#opacity > 0) {
-                this.#opacity -= .02;
+                this.#opacity -= .03;
             }
             // 浮動小数点誤差の都合上、マイナスを超えた瞬間
             // 透過度が1となり、ちらつくため次の処理を挟む
@@ -176,16 +186,6 @@ export default class LogoController
             }
             this.#ctx.globalAlpha = this.#opacity;
         }
-
-        this.#ctx.drawImage(
-            this.#titleImage,
-            this.x - this.#size * .65,
-            this.y + this.#size * .75,
-            this.#size * 1.3,
-            this.#size * .15,
-        );
-
-        this.#ctx.restore();
     }
 
     // ロゴの座標を更新
